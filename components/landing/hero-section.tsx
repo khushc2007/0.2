@@ -121,8 +121,8 @@ export function HeroSection() {
               className="bg-foreground hover:bg-foreground/90 text-background px-8 h-14 text-base rounded-full group"
               asChild
             >
-              <a href="#solution">
-                Explore Technology
+              <a href="https://login-jdj8.vercel.app" style={{ transition: 'opacity 0.35s ease' }}>
+                Login
                 <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
               </a>
             </Button>
@@ -132,7 +132,7 @@ export function HeroSection() {
               className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5"
               asChild
             >
-              <a href="#tank">View 3D Model</a>
+              <a href="/not-found-page">View 3D Model</a>
             </Button>
           </div>
         </div>

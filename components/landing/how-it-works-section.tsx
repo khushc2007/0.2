@@ -63,7 +63,7 @@ export function HowItWorksSection() {
     <section
       id="system"
       ref={sectionRef}
-      className="relative py-24 lg:py-32 bg-foreground text-background overflow-hidden"
+      className="relative py-24 lg:py-32 bg-background text-foreground overflow-hidden"
     >
       {/* Diagonal lines pattern */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
@@ -81,10 +81,10 @@ export function HowItWorksSection() {
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header */}
         <div className="mb-16 lg:mb-24">
-          <span className="inline-flex items-center gap-3 text-sm font-mono text-background/50 mb-6">
-            <span className="w-8 h-px bg-background/30" />
+          <div className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
+            <span className="w-8 h-px bg-foreground/30" />
             Process
-          </span>
+          </div>
           <h2
             className={`text-4xl lg:text-6xl font-display tracking-tight transition-all duration-700 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
@@ -92,7 +92,7 @@ export function HowItWorksSection() {
           >
             From Greywater
             <br />
-            <span className="text-background/50">to Clean Water.</span>
+            <span className="text-muted-foreground">to Clean Water.</span>
           </h2>
         </div>
 
@@ -105,25 +105,25 @@ export function HowItWorksSection() {
                 key={step.number}
                 type="button"
                 onClick={() => setActiveStep(index)}
-                className={`w-full text-left py-8 border-b border-background/10 transition-all duration-500 group ${
+                className={`w-full text-left py-8 border-b border-foreground/10 transition-all duration-500 group ${
                   activeStep === index ? "opacity-100" : "opacity-40 hover:opacity-70"
                 }`}
               >
                 <div className="flex items-start gap-6">
-                  <span className="font-display text-3xl text-background/30">{step.number}</span>
+                  <span className="font-display text-3xl text-foreground/30">{step.number}</span>
                   <div className="flex-1">
                     <h3 className="text-2xl lg:text-3xl font-display mb-3 group-hover:translate-x-2 transition-transform duration-300">
                       {step.title}
                     </h3>
-                    <p className="text-background/60 leading-relaxed">
+                    <p className="text-foreground/60 leading-relaxed">
                       {step.description}
                     </p>
                     
                     {/* Progress indicator */}
                     {activeStep === index && (
-                      <div className="mt-4 h-px bg-background/20 overflow-hidden">
+                      <div className="mt-4 h-px bg-foreground/20 overflow-hidden">
                         <div 
-                          className="h-full bg-background w-0"
+                          className="h-full bg-foreground w-0"
                           style={{
                             animation: 'progress 5s linear forwards'
                           }}
@@ -138,20 +138,20 @@ export function HowItWorksSection() {
 
           {/* Code display */}
           <div className="lg:sticky lg:top-32 self-start">
-            <div className="border border-background/10 overflow-hidden">
+            <div className="border border-foreground/20 overflow-hidden bg-foreground/5 backdrop-blur-sm">
               {/* Window header */}
-              <div className="px-6 py-4 border-b border-background/10 flex items-center justify-between">
+              <div className="px-6 py-4 border-b border-foreground/20 flex items-center justify-between bg-foreground/10">
                 <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full bg-background/20" />
-                  <div className="w-3 h-3 rounded-full bg-background/20" />
-                  <div className="w-3 h-3 rounded-full bg-background/20" />
+                  <div className="w-3 h-3 rounded-full bg-red-500/60" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/60" />
                 </div>
-                <span className="text-xs font-mono text-background/40">workflow.ts</span>
+                <span className="text-xs font-mono text-foreground/50">workflow.ts</span>
               </div>
 
               {/* Code content */}
               <div className="p-8 font-mono text-sm min-h-[280px]">
-                <pre className="text-background/70">
+                <pre className="text-foreground/80">
                   {steps[activeStep].code.split('\n').map((line, lineIndex) => (
                     <div 
                       key={`${activeStep}-${lineIndex}`} 
@@ -160,19 +160,30 @@ export function HowItWorksSection() {
                         animationDelay: `${lineIndex * 80}ms`,
                       }}
                     >
-                      <span className="text-background/20 select-none w-8 inline-block">{lineIndex + 1}</span>
+                      <span className="text-foreground/40 select-none w-8 inline-block">{lineIndex + 1}</span>
                       <span className="inline-flex">
-                        {line.split('').map((char, charIndex) => (
-                          <span
-                            key={`${activeStep}-${lineIndex}-${charIndex}`}
-                            className="code-char-reveal"
-                            style={{
-                              animationDelay: `${lineIndex * 80 + charIndex * 15}ms`,
-                            }}
-                          >
-                            {char === ' ' ? '\u00A0' : char}
-                          </span>
-                        ))}
+                        {line.split('').map((char, charIndex) => {
+                          let colorClass = 'text-cyan-400';
+                          if (char === '{' || char === '}' || char === '[' || char === ']' || char === '(' || char === ')') {
+                            colorClass = 'text-pink-400';
+                          } else if (line.includes('//')) {
+                            colorClass = 'text-green-400/60';
+                          }
+                          return (
+                            <span
+                              key={`${activeStep}-${lineIndex}-${charIndex}`}
+                              className={`code-char-reveal ${colorClass}`}
+                              style={{
+                                animationDelay: `${lineIndex * 80 + charIndex * 15}ms`,
+                                textShadow: colorClass === 'text-cyan-400' ? '0 0 10px rgba(34, 211, 238, 0.5)' : 
+                                            colorClass === 'text-pink-400' ? '0 0 10px rgba(244, 114, 182, 0.5)' :
+                                            colorClass === 'text-green-400/60' ? '0 0 10px rgba(74, 222, 128, 0.3)' : 'none'
+                              }}
+                            >
+                              {char === ' ' ? '\u00A0' : char}
+                            </span>
+                          );
+                        })}
                       </span>
                     </div>
                   ))}
@@ -180,9 +191,9 @@ export function HowItWorksSection() {
               </div>
 
               {/* Status */}
-              <div className="px-6 py-4 border-t border-background/10 flex items-center gap-3">
+              <div className="px-6 py-4 border-t border-foreground/20 flex items-center gap-3 bg-foreground/10">
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs font-mono text-background/40">Ready</span>
+                <span className="text-xs font-mono text-foreground/50">Ready</span>
               </div>
             </div>
           </div>

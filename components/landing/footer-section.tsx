@@ -17,22 +17,22 @@ const footerLinks = {
     { name: "3D Model", href: "#tank" },
   ],
   Company: [
-    { name: "About", href: "#" },
-    { name: "Blog", href: "#" },
-    { name: "Careers", href: "#", badge: "Hiring" },
-    { name: "Contact", href: "#" },
+    { name: "About", href: "/not-found-page" },
+    { name: "Blog", href: "/not-found-page" },
+    { name: "Careers", href: "/not-found-page", badge: "Hiring" },
+    { name: "Contact", href: "/not-found-page" },
   ],
   Legal: [
-    { name: "Privacy", href: "#" },
-    { name: "Terms", href: "#" },
-    { name: "Security", href: "#" },
+    { name: "Privacy", href: "/not-found-page" },
+    { name: "Terms", href: "/not-found-page" },
+    { name: "Security", href: "/not-found-page" },
   ],
 };
 
 const socialLinks = [
-  { name: "Twitter", href: "#" },
-  { name: "GitHub", href: "#" },
-  { name: "LinkedIn", href: "#" },
+  { name: "Twitter", href: "/not-found-page" },
+  { name: "GitHub", href: "/not-found-page" },
+  { name: "LinkedIn", href: "/not-found-page" },
 ];
 
 export function FooterSection() {

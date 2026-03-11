@@ -21,9 +21,16 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'WATER·IQ - Smart Greywater Intelligence',
+  title: 'WATER-IQ | Intelligent Water Management',
   description: 'A five-layer AI-driven greywater treatment system engineered for modern residential buildings. Reclaim. Recycle. Reimagine.',
   generator: 'v0.app',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+    viewportFit: 'cover',
+  },
 }
 
 export default function RootLayout({

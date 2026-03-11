@@ -130,7 +130,7 @@ export function PricingSection() {
         {/* Bottom Note */}
         <p className="mt-12 text-center text-sm text-muted-foreground">
           All deployments include installation, training, and ongoing maintenance.{" "}
-          <a href="#" className="underline underline-offset-4 hover:text-foreground transition-colors">
+          <a href="/not-found-page" className="underline underline-offset-4 hover:text-foreground transition-colors">
             Download full specifications
           </a>
         </p>
