@@ -2,194 +2,147 @@
 
 import { useEffect, useRef, useState } from "react";
 
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
+// ─── physics types ───────────────────────────────────────────────────────────
+interface Feather {
+  x: number; y: number;
+  vx: number; vy: number;
+  angle: number; spin: number;
+  len: number; width: number;
+  opacity: number; life: number; maxLife: number;
+  r: number; g: number; b: number;
+}
+
+interface FlameParticle {
+  x: number; y: number;
+  vx: number; vy: number;
   radius: number;
-  opacity: number;
-  life: number;
-  maxLife: number;
-  r: number;
-  g: number;
-  b: number;
+  opacity: number; life: number; maxLife: number;
 }
 
-interface SunParticle {
-  angle: number;
-  dist: number;
-  speed: number;
-  radius: number;
-  opacity: number;
-  layer: number;
-}
+// ─── math helpers ────────────────────────────────────────────────────────────
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+const ease = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+const easeCubic = (t: number) => t * t * (3 - 2 * t);
 
-function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * t;
-}
-
-function easeInOut(t: number) {
-  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-}
-
-function getScrollColor(scroll: number): [number, number, number] {
-  if (scroll < 0.4) {
-    const t = scroll / 0.4;
-    return [lerp(255, 255, t), lerp(210, 120, t), lerp(60, 20, t)];
-  } else if (scroll < 0.75) {
-    const t = (scroll - 0.4) / 0.35;
-    return [lerp(255, 80, t), lerp(120, 60, t), lerp(20, 220, t)];
+// ─── body colour along fall arc ──────────────────────────────────────────────
+function bodyColor(scroll: number, alpha: number): string {
+  let r, g, b;
+  if (scroll < 0.35) {
+    // near sun: warm gold-white
+    const t = scroll / 0.35;
+    r = lerp(255, 255, t); g = lerp(240, 160, t); b = lerp(180, 40, t);
+  } else if (scroll < 0.7) {
+    // mid fall: orange → red
+    const t = (scroll - 0.35) / 0.35;
+    r = lerp(255, 200, t); g = lerp(160, 40, t); b = lerp(40, 20, t);
   } else {
-    const t = (scroll - 0.75) / 0.25;
-    return [lerp(80, 30, t), lerp(60, 30, t), lerp(220, 255, t)];
+    // ocean: deep cold blue
+    const t = (scroll - 0.7) / 0.3;
+    r = lerp(200, 40, t); g = lerp(40, 60, t); b = lerp(20, 200, t);
   }
+  return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${alpha})`;
 }
 
-function drawDotLine(
+function sunColor(alpha: number): string {
+  return `rgba(255,230,80,${alpha})`;
+}
+
+// ─── draw helpers ────────────────────────────────────────────────────────────
+function strokeLine(
+  ctx: CanvasRenderingContext2D,
+  x1: number, y1: number, x2: number, y2: number,
+  w: number, color: string
+) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineWidth = w;
+  ctx.strokeStyle = color;
+  ctx.lineCap = "round";
+  ctx.stroke();
+}
+
+function strokeCurve(
   ctx: CanvasRenderingContext2D,
   x1: number, y1: number,
+  cpx: number, cpy: number,
   x2: number, y2: number,
-  count: number,
-  r: number, g: number, b: number,
-  baseAlpha: number,
-  radius: number = 2,
-  cx?: number, cy?: number
+  w: number, color: string
 ) {
-  for (let i = 0; i <= count; i++) {
-    const t = i / count;
-    let x: number, y: number;
-
-    if (cx !== undefined && cy !== undefined) {
-      x = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
-      y = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
-    } else {
-      x = lerp(x1, x2, t);
-      y = lerp(y1, y2, t);
-    }
-
-    const jitter = radius * 0.4;
-    const jx = x + (Math.random() - 0.5) * jitter;
-    const jy = y + (Math.random() - 0.5) * jitter;
-
-    const grad = ctx.createRadialGradient(jx, jy, 0, jx, jy, radius * 3);
-    grad.addColorStop(0, `rgba(${r},${g},${b},${baseAlpha * 0.4})`);
-    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-    ctx.beginPath();
-    ctx.arc(jx, jy, radius * 3, 0, Math.PI * 2);
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(jx, jy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${r},${g},${b},${baseAlpha})`;
-    ctx.fill();
-  }
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.quadraticCurveTo(cpx, cpy, x2, y2);
+  ctx.lineWidth = w;
+  ctx.strokeStyle = color;
+  ctx.lineCap = "round";
+  ctx.stroke();
 }
 
-function drawDotCircle(
+// Draw a single realistic feather shape as a filled path
+function drawFeatherShape(
   ctx: CanvasRenderingContext2D,
-  cx: number, cy: number, circleR: number,
-  r: number, g: number, b: number,
-  alpha: number,
-  dotRadius: number = 2
+  x: number, y: number,
+  angle: number,
+  len: number, width: number,
+  r: number, g: number, b: number, alpha: number
 ) {
-  const count = Math.floor(circleR * 4.5);
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2;
-    const x = cx + Math.cos(angle) * circleR;
-    const y = cy + Math.sin(angle) * circleR;
-    ctx.beginPath();
-    ctx.arc(x + (Math.random() - 0.5), y + (Math.random() - 0.5), dotRadius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
-    ctx.fill();
-  }
-  for (let dr = circleR * 0.25; dr < circleR; dr += circleR * 0.3) {
-    const innerCount = Math.floor(dr * 3);
-    for (let i = 0; i < innerCount; i++) {
-      const angle = (i / innerCount) * Math.PI * 2;
-      const x = cx + Math.cos(angle) * dr;
-      const y = cy + Math.sin(angle) * dr;
-      ctx.beginPath();
-      ctx.arc(x, y, dotRadius * 0.8, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${r},${g},${b},${alpha * 0.7})`;
-      ctx.fill();
-    }
-  }
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  // Quill line
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(len, 0);
+  ctx.strokeStyle = `rgba(${r},${g},${b},${alpha * 0.6})`;
+  ctx.lineWidth = width * 0.18;
+  ctx.stroke();
+
+  // Vane - left side
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(len * 0.3, -width * 0.6, len * 0.85, -width * 0.15);
+  ctx.quadraticCurveTo(len * 0.55, -width * 0.2, len * 0.2, 0);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(${r},${g},${b},${alpha * 0.55})`;
+  ctx.fill();
+
+  // Vane - right side
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(len * 0.3, width * 0.45, len * 0.85, width * 0.12);
+  ctx.quadraticCurveTo(len * 0.55, width * 0.15, len * 0.2, 0);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(${r},${g},${b},${alpha * 0.45})`;
+  ctx.fill();
+
+  ctx.restore();
 }
 
-function drawWing(
-  ctx: CanvasRenderingContext2D,
-  originX: number, originY: number,
-  startAngle: number, endAngle: number,
-  minR: number, maxR: number,
-  layers: number,
-  r: number, g: number, b: number,
-  alpha: number,
-  fragmentProgress: number
-) {
-  const intactLayers = Math.ceil(layers * (1 - fragmentProgress * 0.9));
-  for (let layer = 0; layer < intactLayers; layer++) {
-    const layerT = layer / layers;
-    const radius = lerp(minR, maxR, layerT);
-    const arcLength = endAngle - startAngle;
-    const dotCount = Math.floor(radius * Math.abs(arcLength) / 5);
-    const layerAlpha = alpha * (1 - layerT * 0.5) * (1 - fragmentProgress * layerT);
-
-    for (let i = 0; i < dotCount; i++) {
-      const t = i / dotCount;
-      const angle = startAngle + arcLength * t;
-      const x = originX + Math.cos(angle) * radius;
-      const y = originY + Math.sin(angle) * radius;
-      const dotR = lerp(2.5, 1.2, layerT);
-
-      ctx.beginPath();
-      ctx.arc(x + (Math.random() - 0.5) * 2, y + (Math.random() - 0.5) * 2, dotR, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${r},${g},${b},${layerAlpha})`;
-      ctx.fill();
-
-      if (Math.random() < 0.15) {
-        const gGrad = ctx.createRadialGradient(x, y, 0, x, y, dotR * 4);
-        gGrad.addColorStop(0, `rgba(${r},${g},${b},${layerAlpha * 0.5})`);
-        gGrad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        ctx.beginPath();
-        ctx.arc(x, y, dotR * 4, 0, Math.PI * 2);
-        ctx.fillStyle = gGrad;
-        ctx.fill();
-      }
-    }
-  }
-}
-
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export function IcarusScroll() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const scrollRef = useRef(0);
-  const particlesRef = useRef<Particle[]>([]);
-  const sunParticlesRef = useRef<SunParticle[]>([]);
+  const feathersRef = useRef<Feather[]>([]);
+  const flamesRef = useRef<FlameParticle[]>([]);
   const timeRef = useRef(0);
-  const lastEmitRef = useRef(0);
+  const lastFeatherRef = useRef(0);
+  const physicsRef = useRef({
+    // Icarus horizontal position drifts left as he falls
+    x: 0.5,      // 0..1 of canvas width
+    vx: 0,
+    windPhase: Math.random() * 100,
+  });
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!mounted) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    sunParticlesRef.current = Array.from({ length: 180 }, () => ({
-      angle: Math.random() * Math.PI * 2,
-      dist: 20 + Math.random() * 80,
-      speed: 0.2 + Math.random() * 0.5,
-      radius: 0.8 + Math.random() * 2,
-      opacity: 0.2 + Math.random() * 0.8,
-      layer: Math.floor(Math.random() * 3),
-    }));
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -202,211 +155,510 @@ export function IcarusScroll() {
 
     const onScroll = () => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
-      scrollRef.current = max > 0 ? Math.min(window.scrollY / max, 1) : 0;
+      scrollRef.current = max > 0 ? clamp(window.scrollY / max, 0, 1) : 0;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    const render = (timestamp: number) => {
+    const render = (ts: number) => {
       const W = window.innerWidth;
       const H = window.innerHeight;
       ctx.clearRect(0, 0, W, H);
 
       const scroll = scrollRef.current;
-      timeRef.current += 0.016;
-      const t = timeRef.current;
+      const dt = 0.016;
+      timeRef.current += dt;
+      const T = timeRef.current;
 
-      const [cr, cg, cb] = getScrollColor(scroll);
+      const phys = physicsRef.current;
 
-      // ── SUN ──
-      const sunFade = Math.max(0, 1 - scroll * 3);
-      if (sunFade > 0.01) {
-        const sunX = W * 0.5;
-        const sunY = H * 0.07;
+      // ── PHYSICS: drift left with wind turbulence ──────────────────────────
+      // Only starts drifting after fall begins (~20% scroll)
+      if (scroll > 0.15) {
+        const fallT = clamp((scroll - 0.15) / 0.85, 0, 1);
+        // Leftward base drift + Perlin-like wind
+        const wind = Math.sin(T * 0.9 + phys.windPhase) * 0.0006
+                   + Math.sin(T * 2.1 + phys.windPhase * 0.5) * 0.0003;
+        const baseDrift = -0.0008 * fallT;
+        phys.vx += baseDrift + wind;
+        // Slight air resistance
+        phys.vx *= 0.97;
+        phys.x += phys.vx;
+        // Soft bounds (stays on screen)
+        if (phys.x < 0.1) { phys.x = 0.1; phys.vx *= -0.3; }
+        if (phys.x > 0.9) { phys.x = 0.9; phys.vx *= -0.3; }
+      } else {
+        // Near sun: gentle floating bob
+        phys.x = 0.5 + Math.sin(T * 0.7) * 0.025;
+        phys.vx = 0;
+      }
 
-        const coreGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 70);
-        coreGrad.addColorStop(0, `rgba(255,230,100,${0.9 * sunFade})`);
-        coreGrad.addColorStop(0.3, `rgba(255,180,40,${0.5 * sunFade})`);
-        coreGrad.addColorStop(1, `rgba(255,100,0,0)`);
+      const figX = W * phys.x;
+      // Vertical: starts 14% from top near sun, falls to 88%
+      const figYt = scroll < 0.15
+        ? 0.14 + Math.sin(T * 1.1) * 0.008   // floating near sun
+        : 0.14 + easeCubic(clamp((scroll - 0.15) / 0.85, 0, 1)) * 0.74;
+      const figY = H * figYt;
+
+      // ── BODY SCALE: large and prominent ──────────────────────────────────
+      const baseScale = Math.min(W, H) * 0.0022;
+      // Larger near sun, still large during fall
+      const scale = baseScale * lerp(1.4, 1.1, clamp(scroll * 2, 0, 1));
+
+      const u = (v: number) => v * scale;  // unit → px
+
+      // ── BODY ROTATION ─────────────────────────────────────────────────────
+      // 0 = upright, π = head-down
+      let bodyAngle: number;
+      if (scroll < 0.18) {
+        // Upright, slight sway
+        bodyAngle = Math.sin(T * 0.9) * 0.06;
+      } else if (scroll < 0.55) {
+        // Tipping forward then tumbling
+        const rt = ease(clamp((scroll - 0.18) / 0.37, 0, 1));
+        bodyAngle = rt * Math.PI * 0.8;
+      } else {
+        // Continuing rotation to head-down + random tumble
+        const rt = ease(clamp((scroll - 0.55) / 0.45, 0, 1));
+        const tumble = Math.sin(T * 2.5) * clamp(scroll - 0.55, 0, 1) * 0.25;
+        bodyAngle = Math.PI * 0.8 + rt * Math.PI * 0.55 + tumble;
+      }
+
+      // Laugh wiggle of torso (head rocks side to side from ~20% scroll)
+      const laughPhase = scroll > 0.12 ? Math.sin(T * 6.5) * clamp((scroll - 0.12) * 3, 0, 1) * 0.12 : 0;
+
+      // Direction vectors along body spine
+      const spineX = Math.sin(bodyAngle + laughPhase);
+      const spineY = -Math.cos(bodyAngle + laughPhase);
+      const perpX = -spineY;  // perpendicular
+      const perpY = spineX;
+
+      // Key joint positions in world space
+      // figX/figY is the CENTER OF TORSO
+      const torsoHalf = u(18);
+      const shoulderX = figX - spineX * torsoHalf;
+      const shoulderY = figY - spineY * torsoHalf;
+      const hipX = figX + spineX * torsoHalf;
+      const hipY = figY + spineY * torsoHalf;
+      const headX = shoulderX - spineX * u(10);
+      const headY = shoulderY - spineY * u(10);
+
+      // ── ARM POSES ─────────────────────────────────────────────────────────
+      // Arms: angles relative to body axis
+      let leftArmAngle: number, rightArmAngle: number;
+      let leftForeAngle: number, rightForeAngle: number;
+
+      if (scroll < 0.15) {
+        // Triumphant: both arms reaching UP toward sun
+        leftArmAngle = bodyAngle - Math.PI * 0.55 + Math.sin(T * 1.2) * 0.06;
+        rightArmAngle = bodyAngle + Math.PI * 0.55 + Math.cos(T * 1.1) * 0.06;
+        leftForeAngle = leftArmAngle - 0.3;
+        rightForeAngle = rightArmAngle + 0.3;
+      } else if (scroll < 0.45) {
+        // Tipping: arms start flailing
+        const at = ease(clamp((scroll - 0.15) / 0.3, 0, 1));
+        leftArmAngle = bodyAngle - Math.PI * (0.55 - at * 0.2) + Math.sin(T * 3) * at * 0.2;
+        rightArmAngle = bodyAngle + Math.PI * (0.55 - at * 0.2) + Math.cos(T * 3.3) * at * 0.2;
+        leftForeAngle = leftArmAngle - 0.4 * at;
+        rightForeAngle = rightArmAngle + 0.4 * at;
+      } else {
+        // Full fall: arms wildly flailing
+        const flailAmp = clamp(scroll - 0.45, 0, 1);
+        leftArmAngle = bodyAngle - Math.PI * 0.35 + Math.sin(T * 4.8) * flailAmp * 0.55;
+        rightArmAngle = bodyAngle + Math.PI * 0.35 + Math.cos(T * 5.1) * flailAmp * 0.55;
+        leftForeAngle = leftArmAngle + Math.sin(T * 5.5 + 1) * flailAmp * 0.5;
+        rightForeAngle = rightArmAngle + Math.cos(T * 5.8 + 2) * flailAmp * 0.5;
+      }
+
+      // Upper arm end
+      const uArmLen = u(13);
+      const lArmLen = u(12);
+      const lUpperLX = shoulderX + Math.cos(leftArmAngle) * uArmLen;
+      const lUpperLY = shoulderY + Math.sin(leftArmAngle) * uArmLen;
+      const rUpperLX = shoulderX + Math.cos(rightArmAngle) * uArmLen;
+      const rUpperLY = shoulderY + Math.sin(rightArmAngle) * uArmLen;
+      // Forearm end
+      const lHandX = lUpperLX + Math.cos(leftForeAngle) * lArmLen;
+      const lHandY = lUpperLY + Math.sin(leftForeAngle) * lArmLen;
+      const rHandX = rUpperLX + Math.cos(rightForeAngle) * lArmLen;
+      const rHandY = rUpperLY + Math.sin(rightForeAngle) * lArmLen;
+
+      // ── LEG POSES ─────────────────────────────────────────────────────────
+      const legSpread = scroll < 0.3
+        ? 0.15
+        : 0.15 + clamp((scroll - 0.3) * 1.2, 0, 0.7);
+      const legKick = scroll > 0.4 ? Math.sin(T * 4) * clamp(scroll - 0.4, 0, 1) * 0.35 : 0;
+      const leftLegAngle = bodyAngle + Math.PI + legSpread + legKick;
+      const rightLegAngle = bodyAngle + Math.PI - legSpread - legKick * 0.7;
+      const leftKneeAngle = leftLegAngle + 0.2 + Math.abs(legKick) * 0.5;
+      const rightKneeAngle = rightLegAngle - 0.2 - Math.abs(legKick) * 0.3;
+
+      const thighLen = u(14);
+      const shinLen = u(13);
+
+      const lKneeX = hipX + Math.cos(leftLegAngle) * thighLen;
+      const lKneeY = hipY + Math.sin(leftLegAngle) * thighLen;
+      const rKneeX = hipX + Math.cos(rightLegAngle) * thighLen;
+      const rKneeY = hipY + Math.sin(rightLegAngle) * thighLen;
+      const lFootX = lKneeX + Math.cos(leftKneeAngle) * shinLen;
+      const lFootY = lKneeY + Math.sin(leftKneeAngle) * shinLen;
+      const rFootX = rKneeX + Math.cos(rightKneeAngle) * shinLen;
+      const rFootY = rKneeY + Math.sin(rightKneeAngle) * shinLen;
+
+      // ── WING GEOMETRY ─────────────────────────────────────────────────────
+      const wingFrag = scroll < 0.25 ? 0 : clamp((scroll - 0.25) / 0.6, 0, 1);
+      const wingIntact = 1 - wingFrag;
+      // Wing length decreases as feathers shed
+      const wingSpan = u(55) * lerp(1, 0.35, wingFrag);
+
+      // Wing root offset from shoulder
+      const wRootLX = shoulderX + perpX * u(4);
+      const wRootLY = shoulderY + perpY * u(4);
+      const wRootRX = shoulderX - perpX * u(4);
+      const wRootRY = shoulderY - perpY * u(4);
+
+      // Wing tip angles: spread behind body, sweep depends on scroll
+      const wSweep = lerp(0.5, 0.25, clamp(scroll * 2, 0, 1));
+      const wingTipLAngle = bodyAngle - Math.PI * wSweep - scroll * 0.4;
+      const wingTipRAngle = bodyAngle + Math.PI * wSweep + scroll * 0.4;
+
+      // Control points for graceful wing curve
+      const wingTipLX = wRootLX + Math.cos(wingTipLAngle) * wingSpan;
+      const wingTipLY = wRootLY + Math.sin(wingTipLAngle) * wingSpan;
+      const wingTipRX = wRootRX + Math.cos(wingTipRAngle) * wingSpan;
+      const wingTipRY = wRootRY + Math.sin(wingTipRAngle) * wingSpan;
+
+      const wCpLX = wRootLX + Math.cos(wingTipLAngle - 0.3) * wingSpan * 0.55;
+      const wCpLY = wRootLY + Math.sin(wingTipLAngle - 0.3) * wingSpan * 0.55;
+      const wCpRX = wRootRX + Math.cos(wingTipRAngle + 0.3) * wingSpan * 0.55;
+      const wCpRY = wRootRY + Math.sin(wingTipRAngle + 0.3) * wingSpan * 0.55;
+
+      // ── SUN (at top, bright, fades past 30% scroll) ───────────────────────
+      const sunFade = clamp(1 - scroll * 3.3, 0, 1);
+      const sunX = W * 0.5;
+      const sunY = H * 0.075;
+
+      if (sunFade > 0.005) {
+        // Outer atmospheric glow
+        const atmoGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, u(70));
+        atmoGrad.addColorStop(0, `rgba(255,255,200,${0.08 * sunFade})`);
+        atmoGrad.addColorStop(0.4, `rgba(255,180,40,${0.06 * sunFade})`);
+        atmoGrad.addColorStop(1, `rgba(255,80,0,0)`);
         ctx.beginPath();
-        ctx.arc(sunX, sunY, 70, 0, Math.PI * 2);
-        ctx.fillStyle = coreGrad;
+        ctx.arc(sunX, sunY, u(70), 0, Math.PI * 2);
+        ctx.fillStyle = atmoGrad;
         ctx.fill();
 
-        const haloGrad = ctx.createRadialGradient(sunX, sunY, 40, sunX, sunY, 160);
-        haloGrad.addColorStop(0, `rgba(255,200,60,${0.15 * sunFade})`);
-        haloGrad.addColorStop(1, `rgba(255,100,0,0)`);
-        ctx.beginPath();
-        ctx.arc(sunX, sunY, 160, 0, Math.PI * 2);
-        ctx.fillStyle = haloGrad;
-        ctx.fill();
-
-        sunParticlesRef.current.forEach((sp) => {
-          sp.angle += sp.speed * 0.008 * (sp.layer + 1);
-          sp.dist += sp.speed * 0.15;
-          if (sp.dist > 130) {
-            sp.dist = 15 + Math.random() * 20;
-            sp.opacity = 0.4 + Math.random() * 0.6;
-          }
-          const px = sunX + Math.cos(sp.angle) * sp.dist;
-          const py = sunY + Math.sin(sp.angle) * sp.dist * 0.7;
-          const pAlpha = sp.opacity * sunFade * (1 - sp.dist / 140);
+        // Corona spikes
+        for (let i = 0; i < 24; i++) {
+          const ang = (i / 24) * Math.PI * 2 + T * 0.08;
+          const len = u(18) + Math.sin(T * 1.5 + i * 0.8) * u(8);
+          const baseW = u(2.5) * Math.sin(T * 0.6 + i) * 0.3 + u(1.8);
+          const sx = sunX + Math.cos(ang) * u(22);
+          const sy = sunY + Math.sin(ang) * u(22);
+          const ex = sunX + Math.cos(ang) * (u(22) + len);
+          const ey = sunY + Math.sin(ang) * (u(22) + len);
+          const spikeGrad = ctx.createLinearGradient(sx, sy, ex, ey);
+          spikeGrad.addColorStop(0, `rgba(255,220,80,${0.85 * sunFade})`);
+          spikeGrad.addColorStop(1, `rgba(255,140,0,0)`);
           ctx.beginPath();
-          ctx.arc(px, py, sp.radius, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,${180 + sp.layer * 20},${50 + sp.layer * 30},${pAlpha})`;
-          ctx.fill();
-        });
-
-        const rayCount = 16;
-        for (let i = 0; i < rayCount; i++) {
-          const rayAngle = (i / rayCount) * Math.PI * 2 + t * 0.12;
-          const rayLen = 50 + Math.sin(t * 0.8 + i * 0.7) * 25;
-          const x1 = sunX + Math.cos(rayAngle) * 28;
-          const y1 = sunY + Math.sin(rayAngle) * 18;
-          const x2 = sunX + Math.cos(rayAngle) * (28 + rayLen);
-          const y2 = sunY + Math.sin(rayAngle) * (18 + rayLen * 0.65);
-          const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-          grad.addColorStop(0, `rgba(255,200,60,${0.5 * sunFade})`);
-          grad.addColorStop(1, `rgba(255,120,0,0)`);
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.strokeStyle = grad;
-          ctx.lineWidth = 1.2 + Math.sin(t + i) * 0.5;
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(ex, ey);
+          ctx.strokeStyle = spikeGrad;
+          ctx.lineWidth = baseW;
+          ctx.lineCap = "round";
           ctx.stroke();
         }
+
+        // Solar disc
+        const discGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, u(21));
+        discGrad.addColorStop(0, `rgba(255,255,230,${sunFade})`);
+        discGrad.addColorStop(0.5, `rgba(255,220,80,${0.95 * sunFade})`);
+        discGrad.addColorStop(0.85, `rgba(255,160,20,${0.8 * sunFade})`);
+        discGrad.addColorStop(1, `rgba(255,80,0,0)`);
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, u(21), 0, Math.PI * 2);
+        ctx.fillStyle = discGrad;
+        ctx.fill();
       }
 
-      // ── ICARUS ──
-      const S = (v: number) => v * Math.min(W, H) * 0.065;
+      // ── SUN CONTACT GLOW (when near sun top ~0-18% scroll) ───────────────
+      if (scroll < 0.22 && scroll > 0.0) {
+        const contactT = clamp(1 - scroll / 0.22, 0, 1); // stronger at top
+        const glowR = u(28) * (0.5 + contactT * 0.5);
+        const contactGrad = ctx.createRadialGradient(
+          lHandX, lHandY, 0, lHandX, lHandY, glowR
+        );
+        contactGrad.addColorStop(0, `rgba(255,240,120,${0.6 * contactT})`);
+        contactGrad.addColorStop(0.4, `rgba(255,160,40,${0.3 * contactT})`);
+        contactGrad.addColorStop(1, `rgba(255,80,0,0)`);
+        ctx.beginPath();
+        ctx.arc(lHandX, lHandY, glowR, 0, Math.PI * 2);
+        ctx.fillStyle = contactGrad;
+        ctx.fill();
 
-      const figX = W * 0.5 + Math.sin(t * 0.4) * S(scroll < 0.3 ? 0.3 : 0) * (1 - scroll);
-      const figY = H * 0.13 + scroll * H * 0.8;
-
-      let bodyRotation: number;
-      if (scroll < 0.25) {
-        bodyRotation = 0;
-      } else if (scroll < 0.6) {
-        const rt = (scroll - 0.25) / 0.35;
-        bodyRotation = easeInOut(rt) * Math.PI * 0.65;
-      } else {
-        const rt = (scroll - 0.6) / 0.4;
-        bodyRotation = Math.PI * 0.65 + easeInOut(rt) * Math.PI * 0.65;
+        // Right hand too
+        const rGlowR = u(22) * (0.4 + contactT * 0.4);
+        const rContactGrad = ctx.createRadialGradient(rHandX, rHandY, 0, rHandX, rHandY, rGlowR);
+        rContactGrad.addColorStop(0, `rgba(255,220,100,${0.45 * contactT})`);
+        rContactGrad.addColorStop(1, `rgba(255,80,0,0)`);
+        ctx.beginPath();
+        ctx.arc(rHandX, rHandY, rGlowR, 0, Math.PI * 2);
+        ctx.fillStyle = rContactGrad;
+        ctx.fill();
       }
 
-      const tumble = scroll > 0.45 ? Math.sin(t * 3.5) * scroll * 0.15 : 0;
-      const rot = bodyRotation + tumble;
+      // ── BODY GLOW AURA (always) ───────────────────────────────────────────
+      const auraR = u(30);
+      const auraGrad = ctx.createRadialGradient(figX, figY, 0, figX, figY, auraR);
+      const [ar, ag, ab] = scroll < 0.35
+        ? [255, 200, 80]
+        : scroll < 0.7
+        ? [220, 80, 20]
+        : [40, 60, 220];
+      auraGrad.addColorStop(0, `rgba(${ar},${ag},${ab},0.12)`);
+      auraGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
+      ctx.beginPath();
+      ctx.arc(figX, figY, auraR, 0, Math.PI * 2);
+      ctx.fillStyle = auraGrad;
+      ctx.fill();
 
-      const bx = Math.sin(rot);
-      const by = -Math.cos(rot);
+      // ── WINGS ─────────────────────────────────────────────────────────────
+      if (wingIntact > 0.05) {
+        const wingAlpha = wingIntact * 0.72;
+        const wColor = scroll < 0.35
+          ? [255, 230, 160] : scroll < 0.65
+          ? [240, 160, 60] : [180, 100, 40];
 
-      const headR = S(0.18);
-      const torsoLen = S(0.55);
-      const limbLen = S(0.45);
+        // Wing structure lines (primary feather shafts)
+        const featherCount = Math.round(lerp(9, 4, wingFrag));
+        for (let fi = 0; fi < featherCount; fi++) {
+          const ft = fi / (featherCount - 1);
+          // Left wing feather positions along the bezier
+          const bt = ft;
+          const bx = (1 - bt) * (1 - bt) * wRootLX + 2 * (1 - bt) * bt * wCpLX + bt * bt * wingTipLX;
+          const by = (1 - bt) * (1 - bt) * wRootLY + 2 * (1 - bt) * bt * wCpLY + bt * bt * wingTipLY;
+          const featherLen = lerp(u(20), u(6), ft) * wingIntact;
+          const featherAng = wingTipLAngle - 0.7 + ft * 0.5;
+          const fAlpha = wingAlpha * (1 - ft * 0.4);
+          const fc = `rgba(${wColor[0]},${wColor[1]},${wColor[2]},${fAlpha})`;
+          strokeLine(ctx, bx, by, bx + Math.cos(featherAng - Math.PI * 0.5) * featherLen,
+            by + Math.sin(featherAng - Math.PI * 0.5) * featherLen, u(0.9) + ft * u(0.3), fc);
+        }
+        for (let fi = 0; fi < featherCount; fi++) {
+          const ft = fi / (featherCount - 1);
+          const bt = ft;
+          const bx = (1 - bt) * (1 - bt) * wRootRX + 2 * (1 - bt) * bt * wCpRX + bt * bt * wingTipRX;
+          const by = (1 - bt) * (1 - bt) * wRootRY + 2 * (1 - bt) * bt * wCpRY + bt * bt * wingTipRY;
+          const featherLen = lerp(u(20), u(6), ft) * wingIntact;
+          const featherAng = wingTipRAngle + 0.7 - ft * 0.5;
+          const fAlpha = wingAlpha * (1 - ft * 0.4);
+          const fc = `rgba(${wColor[0]},${wColor[1]},${wColor[2]},${fAlpha})`;
+          strokeLine(ctx, bx, by, bx + Math.cos(featherAng + Math.PI * 0.5) * featherLen,
+            by + Math.sin(featherAng + Math.PI * 0.5) * featherLen, u(0.9) + ft * u(0.3), fc);
+        }
 
-      const headX = figX - bx * (torsoLen * 0.5 + headR);
-      const headY = figY - by * (torsoLen * 0.5 + headR);
-      const hipX = figX + bx * torsoLen * 0.5;
-      const hipY = figY + by * torsoLen * 0.5;
-      const shoulderX = figX - bx * torsoLen * 0.2;
-      const shoulderY = figY - by * torsoLen * 0.2;
+        // Main wing curve (leading edge)
+        const wStroke = `rgba(${wColor[0]},${wColor[1]},${wColor[2]},${wingAlpha})`;
+        ctx.beginPath();
+        ctx.moveTo(wRootLX, wRootLY);
+        ctx.quadraticCurveTo(wCpLX, wCpLY, wingTipLX, wingTipLY);
+        ctx.strokeStyle = wStroke;
+        ctx.lineWidth = u(1.6) * wingIntact;
+        ctx.lineCap = "round";
+        ctx.stroke();
 
-      let armL: number, armR: number;
-      if (scroll < 0.2) {
-        armL = rot - Math.PI * 0.7;
-        armR = rot + Math.PI * 0.7;
-      } else if (scroll < 0.5) {
-        const at = (scroll - 0.2) / 0.3;
-        armL = rot - Math.PI * (0.7 - at * 0.3);
-        armR = rot + Math.PI * (0.7 - at * 0.3);
-      } else {
-        const at = (scroll - 0.5) / 0.5;
-        armL = rot - Math.PI * (0.4 + Math.sin(t * 4) * 0.2 * at);
-        armR = rot + Math.PI * (0.4 + Math.cos(t * 4.3) * 0.2 * at);
+        ctx.beginPath();
+        ctx.moveTo(wRootRX, wRootRY);
+        ctx.quadraticCurveTo(wCpRX, wCpRY, wingTipRX, wingTipRY);
+        ctx.strokeStyle = wStroke;
+        ctx.lineWidth = u(1.6) * wingIntact;
+        ctx.lineCap = "round";
+        ctx.stroke();
       }
 
-      const legSpread = scroll < 0.35 ? 0.12 : 0.12 + (scroll - 0.35) * 0.5;
-      const legL = rot + Math.PI + legSpread + Math.sin(t * 3) * scroll * 0.1;
-      const legR = rot + Math.PI - legSpread + Math.cos(t * 3.2) * scroll * 0.1;
+      // ── BODY ──────────────────────────────────────────────────────────────
+      const limbW = u(2.6);
+      const torsoW = u(3.4);
+      const c1 = bodyColor(scroll, 0.9);
+      const c2 = bodyColor(scroll, 0.75);
+      const c3 = bodyColor(scroll, 0.6);
 
-      const wingFrag = scroll < 0.3 ? 0 : Math.min((scroll - 0.3) / 0.65, 1);
-      const wingSpread = Math.PI * (scroll < 0.3 ? 0.7 : 0.7 - wingFrag * 0.35);
+      // TORSO
+      strokeLine(ctx, shoulderX, shoulderY, hipX, hipY, torsoW, c1);
+      // Slight torso width
+      strokeLine(ctx,
+        shoulderX + perpX * u(3), shoulderY + perpY * u(3),
+        hipX + perpX * u(2), hipY + perpY * u(2),
+        u(0.8), c2);
+      strokeLine(ctx,
+        shoulderX - perpX * u(3), shoulderY - perpY * u(3),
+        hipX - perpX * u(2), hipY - perpY * u(2),
+        u(0.8), c2);
 
-      const alpha = 0.82;
-      const wingAngleL_start = rot - Math.PI * 0.1;
-      const wingAngleL_end = rot - Math.PI * 0.1 - wingSpread;
-      const wingAngleR_start = rot + Math.PI * 0.1;
-      const wingAngleR_end = rot + Math.PI * 0.1 + wingSpread;
+      // LEGS (behind body, draw first)
+      strokeLine(ctx, hipX, hipY, lKneeX, lKneeY, limbW, c2);
+      strokeLine(ctx, lKneeX, lKneeY, lFootX, lFootY, limbW * 0.85, c2);
+      strokeLine(ctx, hipX, hipY, rKneeX, rKneeY, limbW, c1);
+      strokeLine(ctx, rKneeX, rKneeY, rFootX, rFootY, limbW * 0.85, c1);
 
-      drawWing(ctx, shoulderX, shoulderY, wingAngleL_start, wingAngleL_end,
-        S(0.15), S(1.1), 8, cr, cg, cb, alpha * 0.75, wingFrag);
-      drawWing(ctx, shoulderX, shoulderY, wingAngleR_start, wingAngleR_end,
-        S(0.15), S(1.1), 8, cr, cg, cb, alpha * 0.75, wingFrag);
+      // ARMS
+      strokeLine(ctx, shoulderX, shoulderY, lUpperLX, lUpperLY, limbW, c1);
+      strokeLine(ctx, lUpperLX, lUpperLY, lHandX, lHandY, limbW * 0.85, c1);
+      strokeLine(ctx, shoulderX, shoulderY, rUpperLX, rUpperLY, limbW, c2);
+      strokeLine(ctx, rUpperLX, rUpperLY, rHandX, rHandY, limbW * 0.85, c2);
 
-      drawDotLine(ctx,
-        figX - bx * torsoLen * 0.5, figY - by * torsoLen * 0.5,
-        figX + bx * torsoLen * 0.5, figY + by * torsoLen * 0.5,
-        20, cr, cg, cb, alpha, 2.2);
+      // NECK
+      strokeLine(ctx, headX, headY, shoulderX, shoulderY, u(1.9), c1);
 
-      drawDotCircle(ctx, headX, headY, headR, cr, cg, cb, alpha, 2);
+      // HEAD (circle)
+      const headRad = u(7.5);
+      ctx.beginPath();
+      ctx.arc(headX, headY, headRad, 0, Math.PI * 2);
+      ctx.strokeStyle = c1;
+      ctx.lineWidth = u(1.8);
+      ctx.stroke();
 
-      const armEndLX = shoulderX + Math.cos(armL) * limbLen;
-      const armEndLY = shoulderY + Math.sin(armL) * limbLen;
-      const armEndRX = shoulderX + Math.cos(armR) * limbLen;
-      const armEndRY = shoulderY + Math.sin(armR) * limbLen;
-      const armCLX = shoulderX + Math.cos(armL + 0.3) * limbLen * 0.5;
-      const armCLY = shoulderY + Math.sin(armL + 0.3) * limbLen * 0.5;
-      const armCRX = shoulderX + Math.cos(armR - 0.3) * limbLen * 0.5;
-      const armCRY = shoulderY + Math.sin(armR - 0.3) * limbLen * 0.5;
+      // Head fill (semi-transparent flesh tone)
+      const headFill = ctx.createRadialGradient(
+        headX - spineX * headRad * 0.2, headY - spineY * headRad * 0.2, 0,
+        headX, headY, headRad
+      );
+      headFill.addColorStop(0, bodyColor(scroll, 0.25));
+      headFill.addColorStop(1, bodyColor(scroll, 0.05));
+      ctx.beginPath();
+      ctx.arc(headX, headY, headRad, 0, Math.PI * 2);
+      ctx.fillStyle = headFill;
+      ctx.fill();
 
-      drawDotLine(ctx, shoulderX, shoulderY, armEndLX, armEndLY, 14, cr, cg, cb, alpha, 2, armCLX, armCLY);
-      drawDotLine(ctx, shoulderX, shoulderY, armEndRX, armEndRY, 14, cr, cg, cb, alpha, 2, armCRX, armCRY);
-      drawDotLine(ctx, hipX, hipY, hipX + Math.cos(legL) * limbLen * 0.85, hipY + Math.sin(legL) * limbLen * 0.85, 14, cr, cg, cb, alpha, 2);
-      drawDotLine(ctx, hipX, hipY, hipX + Math.cos(legR) * limbLen * 0.85, hipY + Math.sin(legR) * limbLen * 0.85, 14, cr, cg, cb, alpha, 2);
+      // ── LAUGH EXPRESSION: open mouth on head ──────────────────────────────
+      if (scroll > 0.08) {
+        const laughIntensity = clamp((scroll - 0.08) * 5, 0, 1);
+        // Mouth: arc opening on the face, tilted with head
+        ctx.save();
+        ctx.translate(headX, headY);
+        ctx.rotate(bodyAngle + laughPhase * 2);
+        const mouthY = headRad * 0.3;
+        const mouthW = headRad * lerp(0.3, 0.65, laughIntensity);
+        ctx.beginPath();
+        ctx.arc(0, mouthY, mouthW, 0.1, Math.PI - 0.1);
+        ctx.strokeStyle = bodyColor(scroll, 0.8);
+        ctx.lineWidth = u(0.9);
+        ctx.stroke();
+        // Eyes (two dots)
+        const eyeOffX = headRad * 0.28;
+        const eyeOffY = -headRad * 0.15;
+        ctx.beginPath();
+        ctx.arc(-eyeOffX, eyeOffY, u(0.8), 0, Math.PI * 2);
+        ctx.fillStyle = bodyColor(scroll, 0.9);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(eyeOffX, eyeOffY, u(0.8), 0, Math.PI * 2);
+        ctx.fill();
+        // Laugh squint lines
+        if (laughIntensity > 0.4) {
+          const squint = (laughIntensity - 0.4) / 0.6;
+          strokeLine(ctx, -eyeOffX - u(1.5), eyeOffY - u(1.2),
+            -eyeOffX + u(1.5), eyeOffY - u(1.2), u(0.5),
+            bodyColor(scroll, 0.5 * squint));
+          strokeLine(ctx, eyeOffX - u(1.5), eyeOffY - u(1.2),
+            eyeOffX + u(1.5), eyeOffY - u(1.2), u(0.5),
+            bodyColor(scroll, 0.5 * squint));
+        }
+        ctx.restore();
+      }
 
-      // ── EMIT FEATHERS ──
-      if (scroll > 0.28 && timestamp - lastEmitRef.current > 60) {
-        lastEmitRef.current = timestamp;
-        const emitCount = Math.floor(scroll * 5);
-        for (let i = 0; i < emitCount; i++) {
-          if (particlesRef.current.length >= 250) break;
-          const wingT = Math.random();
-          const wSide = Math.random() < 0.5 ? -1 : 1;
-          const wAngle = wSide < 0
-            ? lerp(wingAngleL_start, wingAngleL_end, wingT)
-            : lerp(wingAngleR_start, wingAngleR_end, wingT);
-          const wDist = lerp(S(0.15), S(1.1), wingT * (1 - wingFrag * 0.5));
-          const px = shoulderX + Math.cos(wAngle) * wDist;
-          const py = shoulderY + Math.sin(wAngle) * wDist;
+      // ── EMIT FEATHERS (falling burning feathers) ──────────────────────────
+      if (scroll > 0.22 && ts - lastFeatherRef.current > lerp(120, 40, wingFrag)) {
+        lastFeatherRef.current = ts;
+        const emitN = Math.ceil(wingFrag * 4);
+        const wColor2: [number, number, number] = scroll < 0.5
+          ? [255, 200, 80] : [220, 120, 40];
 
-          particlesRef.current.push({
-            x: px + (Math.random() - 0.5) * 10,
-            y: py + (Math.random() - 0.5) * 10,
-            vx: (Math.random() - 0.5) * 1.5,
-            vy: -0.5 + Math.random() * 2.5,
-            radius: 1 + Math.random() * 2,
-            opacity: 0.5 + Math.random() * 0.5,
+        for (let i = 0; i < emitN; i++) {
+          if (feathersRef.current.length >= 180) break;
+          // Emit from random wing point
+          const side = Math.random() < 0.5 ? 'L' : 'R';
+          const wft = Math.random();
+          const bt = wft;
+          let ex: number, ey: number;
+          if (side === 'L') {
+            ex = (1 - bt) * (1 - bt) * wRootLX + 2 * (1 - bt) * bt * wCpLX + bt * bt * wingTipLX;
+            ey = (1 - bt) * (1 - bt) * wRootLY + 2 * (1 - bt) * bt * wCpLY + bt * bt * wingTipLY;
+          } else {
+            ex = (1 - bt) * (1 - bt) * wRootRX + 2 * (1 - bt) * bt * wCpRX + bt * bt * wingTipRX;
+            ey = (1 - bt) * (1 - bt) * wRootRY + 2 * (1 - bt) * bt * wCpRY + bt * bt * wingTipRY;
+          }
+          feathersRef.current.push({
+            x: ex + (Math.random() - 0.5) * u(4),
+            y: ey + (Math.random() - 0.5) * u(4),
+            vx: (Math.random() - 0.6) * u(0.8) + phys.vx * W * 0.3,
+            vy: (Math.random() - 0.3) * u(0.6),
+            angle: Math.random() * Math.PI * 2,
+            spin: (Math.random() - 0.5) * 0.12,
+            len: u(8) + Math.random() * u(10),
+            width: u(3) + Math.random() * u(3),
+            opacity: 0.55 + Math.random() * 0.35,
             life: 0,
-            maxLife: 120 + Math.random() * 120,
-            r: Math.min(255, Math.max(0, cr + Math.floor((Math.random() - 0.5) * 40))),
-            g: Math.min(255, Math.max(0, cg + Math.floor((Math.random() - 0.5) * 40))),
-            b: Math.min(255, Math.max(0, cb + Math.floor((Math.random() - 0.5) * 40))),
+            maxLife: 160 + Math.random() * 200,
+            r: wColor2[0] + Math.floor((Math.random() - 0.5) * 50),
+            g: wColor2[1] + Math.floor((Math.random() - 0.5) * 50),
+            b: wColor2[2] + Math.floor((Math.random() - 0.5) * 50),
           });
         }
       }
 
-      // ── DRAW FEATHERS ──
-      particlesRef.current = particlesRef.current.filter(p => p.life < p.maxLife);
-      particlesRef.current.forEach(p => {
-        p.life++;
-        p.vy += 0.04;
-        p.vx += (Math.random() - 0.5) * 0.08;
-        p.x += p.vx;
-        p.y += p.vy;
-        const lifeT = p.life / p.maxLife;
-        const pAlpha = p.opacity * (1 - lifeT * lifeT);
+      // ── UPDATE & DRAW FEATHERS ─────────────────────────────────────────────
+      feathersRef.current = feathersRef.current.filter(f => f.life < f.maxLife);
+      feathersRef.current.forEach(f => {
+        f.life++;
+        f.vy += 0.045;  // gravity
+        f.vx *= 0.992;  // drag
+        f.vx += (Math.random() - 0.5) * 0.15;  // turbulence
+        f.x += f.vx;
+        f.y += f.vy;
+        f.angle += f.spin;
+        const lt = f.life / f.maxLife;
+        const fa = f.opacity * (1 - lt * lt);
+        drawFeatherShape(ctx, f.x, f.y, f.angle, f.len, f.width,
+          clamp(f.r, 0, 255), clamp(f.g, 0, 255), clamp(f.b, 0, 255), fa);
+      });
+
+      // ── FLAME PARTICLES (hands burning near sun, ~0-22% scroll) ───────────
+      if (scroll < 0.25) {
+        const flameT = clamp(1 - scroll / 0.25, 0, 1);
+        if (Math.random() < flameT * 0.7) {
+          const fSrc = Math.random() < 0.5
+            ? [lHandX, lHandY] : [rHandX, rHandY];
+          flamesRef.current.push({
+            x: fSrc[0] + (Math.random() - 0.5) * u(3),
+            y: fSrc[1] + (Math.random() - 0.5) * u(3),
+            vx: (Math.random() - 0.5) * u(0.5),
+            vy: -u(0.4) - Math.random() * u(0.6),
+            radius: u(1.2) + Math.random() * u(2),
+            opacity: 0.6 + Math.random() * 0.4,
+            life: 0, maxLife: 30 + Math.random() * 30,
+          });
+        }
+        if (flamesRef.current.length > 80) flamesRef.current.splice(0, 20);
+      }
+
+      flamesRef.current = flamesRef.current.filter(f => f.life < f.maxLife);
+      flamesRef.current.forEach(f => {
+        f.life++;
+        f.vy -= 0.015;
+        f.x += f.vx;
+        f.y += f.vy;
+        const lt = f.life / f.maxLife;
+        const fa = f.opacity * (1 - lt);
+        const fr = Math.round(lerp(255, 255, lt));
+        const fg = Math.round(lerp(220, 60, lt));
+        const fb = Math.round(lerp(80, 0, lt));
+        const flameGrad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.radius * 2);
+        flameGrad.addColorStop(0, `rgba(${fr},${fg},${fb},${fa})`);
+        flameGrad.addColorStop(1, `rgba(${fr},${fb},0,0)`);
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${pAlpha})`;
+        ctx.arc(f.x, f.y, f.radius * 2, 0, Math.PI * 2);
+        ctx.fillStyle = flameGrad;
         ctx.fill();
       });
 
@@ -414,7 +666,6 @@ export function IcarusScroll() {
     };
 
     rafRef.current = requestAnimationFrame(render);
-
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener("resize", resize);
@@ -433,7 +684,7 @@ export function IcarusScroll() {
         width: "100vw",
         height: "100vh",
         zIndex: 1,
-        opacity: 0.52,
+        opacity: 0.6,
         pointerEvents: "none",
       }}
     />
