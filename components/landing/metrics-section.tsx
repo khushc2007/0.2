@@ -21,10 +21,7 @@ function AnimatedCounter({ end, suffix = "", prefix = "" }: { end: number; suffi
             const progress = Math.min(elapsed / duration, 1);
             const eased = 1 - Math.pow(1 - progress, 3);
             setCount(Math.floor(eased * end));
-
-            if (progress < 1) {
-              requestAnimationFrame(animate);
-            }
+            if (progress < 1) requestAnimationFrame(animate);
           };
 
           requestAnimationFrame(animate);
@@ -45,30 +42,10 @@ function AnimatedCounter({ end, suffix = "", prefix = "" }: { end: number; suffi
 }
 
 const metrics = [
-  { 
-    value: 98, 
-    suffix: ".7%", 
-    prefix: "",
-    label: "Filtration Efficiency",
-  },
-  { 
-    value: 2, 
-    suffix: ".4s", 
-    prefix: "",
-    label: "AI Response Time",
-  },
-  { 
-    value: 150, 
-    suffix: "+", 
-    prefix: "",
-    label: "Households Served",
-  },
-  { 
-    value: 70, 
-    suffix: "%", 
-    prefix: "",
-    label: "Greywater Reusable",
-  },
+  { value: 70,  suffix: "%",   prefix: "", label: "Greywater Recovered Per Cycle" },
+  { value: 3,   suffix: ".5s", prefix: "", label: "Sensor Read Interval" },
+  { value: 6,   suffix: "",    prefix: "", label: "AI Intelligence Layers" },
+  { value: 15,  suffix: "min", prefix: "", label: "EC Contact Time Guaranteed" },
 ];
 
 export function MetricsSection() {
@@ -80,35 +57,30 @@ export function MetricsSection() {
   useEffect(() => {
     setIsMounted(true);
     setTime(new Date().toLocaleTimeString());
-    
     const interval = setInterval(() => {
       setTime(new Date().toLocaleTimeString());
     }, 1000);
-    
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setIsVisible(true);
-      },
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
       { threshold: 0.1 }
     );
-
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, []);
 
   return (
-    <section id="studio" ref={sectionRef} className="relative py-24 lg:py-32 border-y border-foreground/10">
+    <section id="impact" ref={sectionRef} className="relative py-24 lg:py-32 border-y border-foreground/10">
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-16 lg:mb-24">
           <div>
             <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
               <span className="w-8 h-px bg-foreground/30" />
-              Live metrics
+              Real-World Impact
             </span>
             <h2
               className={`text-4xl lg:text-6xl font-display tracking-tight transition-all duration-700 ${
@@ -117,7 +89,7 @@ export function MetricsSection() {
             >
               Performance you
               <br />
-              can trust.
+              can measure.
             </h2>
           </div>
           <div className="flex items-center gap-4 font-mono text-sm text-muted-foreground">
@@ -148,6 +120,18 @@ export function MetricsSection() {
               <div className="mt-4 text-lg text-muted-foreground">{metric.label}</div>
             </div>
           ))}
+        </div>
+
+        {/* Info strip */}
+        <div
+          className={`mt-12 pt-8 border-t border-foreground/10 transition-all duration-700 delay-500 ${
+            isVisible ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <p className="font-mono text-xs text-muted-foreground leading-relaxed">
+            WATER-IQ is designed for residential apartment buildings of 8–500 units.
+            Pilot deployments in Bengaluru. Built for hackathon demonstration — scalable to production.
+          </p>
         </div>
       </div>
     </section>

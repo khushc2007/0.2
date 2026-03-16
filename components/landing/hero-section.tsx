@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { AnimatedSphere } from "./animated-sphere";
 
-const words = ["Recycle", "Reimagine", "Rethink", "Reuse"];
+const words = ["Reclaim.", "Rethink.", "Reuse.", "Restore."];
 
 export function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
@@ -64,7 +64,7 @@ export function HeroSection() {
         >
           <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground">
             <span className="w-8 h-px bg-foreground/30" />
-            Smart Greywater Intelligence
+            AI-Driven Greywater Intelligence
           </span>
         </div>
         
@@ -107,7 +107,9 @@ export function HeroSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            A five-layer AI-driven greywater treatment system engineered for modern residential buildings.
+            WATER-IQ is a six-layer AI greywater treatment system built for modern apartment buildings.
+            It collects, analyzes, and routes greywater in real time — turning waste water into a
+            reusable resource with zero manual input.
           </p>
           
           {/* CTAs */}
@@ -122,7 +124,7 @@ export function HeroSection() {
               asChild
             >
               <a href="https://login-jdj8.vercel.app" style={{ transition: 'opacity 0.35s ease' }}>
-                Login
+                Get Access
                 <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
               </a>
             </Button>
@@ -132,7 +134,15 @@ export function HeroSection() {
               className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5"
               asChild
             >
-              <a href="/not-found-page">View 3D Model</a>
+              <a href="#solution">See How It Works</a>
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5"
+              asChild
+            >
+              <a href="https://chamber3d-e6hod2yda-ddeh5x.vercel.app" target="_blank" rel="noopener noreferrer">View 3D Model</a>
             </Button>
           </div>
         </div>
@@ -149,10 +159,10 @@ export function HeroSection() {
           {[...Array(2)].map((_, i) => (
             <div key={i} className="flex gap-16">
               {[
-                { value: "70%", label: "water reclaimed", company: "RESIDENTIAL" },
-                { value: "2.4s", label: "AI response time", company: "SENSOR ARRAY" },
-                { value: "150+", label: "households served", company: "PILOT CITIES" },
-                { value: "98.7%", label: "filtration efficiency", company: "MEMBRANE" },
+                { value: "70%",   label: "greywater recovered",    company: "PER CYCLE" },
+                { value: "3.5s",  label: "sensor read interval",   company: "REAL-TIME" },
+                { value: "6",     label: "intelligence layers",     company: "AI STACK" },
+                { value: "F1–F5", label: "filtration brackets",    company: "AUTO-ROUTED" },
               ].map((stat) => (
                 <div key={`${stat.company}-${i}`} className="flex items-baseline gap-4">
                   <span className="text-4xl lg:text-5xl font-display">{stat.value}</span>
@@ -166,8 +176,6 @@ export function HeroSection() {
           ))}
         </div>
       </div>
-      
-      {/* Scroll indicator */}
       
     </section>
   );

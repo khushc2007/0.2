@@ -5,13 +5,12 @@ import { ArrowRight, Check } from "lucide-react";
 const plans = [
   {
     name: "Residential",
-    description: "8-50 units",
-    price: { monthly: null, annual: null },
+    description: "8–50 units",
     features: [
-      "40-60% water savings",
-      "2-4 year payback",
-      "Standard installation",
-      "Mobile monitoring",
+      "40–70% water savings",
+      "Automated quality scoring",
+      "Mobile dashboard access",
+      "Real-time sensor monitoring",
       "Email support",
     ],
     cta: "Get a Quote",
@@ -19,16 +18,15 @@ const plans = [
   },
   {
     name: "Commercial",
-    description: "50-500 units",
-    price: { monthly: null, annual: null },
+    description: "50–500 units",
     features: [
-      "Centralized monitoring",
-      "Automated compliance",
+      "Everything in Residential",
+      "Centralized multi-unit monitoring",
+      "Historical data analytics",
+      "Automated compliance reporting",
       "Priority installation",
-      "24/7 dashboard access",
-      "Dedicated support",
-      "API integration",
-      "Custom reporting",
+      "24/7 dashboard",
+      "API access",
     ],
     cta: "Get a Quote",
     popular: true,
@@ -36,16 +34,15 @@ const plans = [
   {
     name: "City Scale",
     description: "500+ units",
-    price: { monthly: null, annual: null },
     features: [
       "Everything in Commercial",
-      "Unlimited scale",
+      "Unlimited unit scale",
       "Smart city integration",
       "Custom SLA",
       "On-site support",
       "Municipal APIs",
       "White-label option",
-      "Regulatory compliance",
+      "Regulatory compliance package",
     ],
     cta: "Get a Quote",
     popular: false,
@@ -54,24 +51,24 @@ const plans = [
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="relative py-32 lg:py-40 border-t border-foreground/10">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
+    <section id="deploy" className="relative py-32 lg:py-40 border-t border-foreground/10">
+      <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header */}
         <div className="max-w-3xl mb-20">
-          <span className="font-mono text-xs tracking-widest text-muted-foreground uppercase block mb-6">
-            Deployment Options
+          <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
+            <span className="w-8 h-px bg-foreground/30" />
+            Deployment
           </span>
-          <h2 className="font-display text-5xl md:text-6xl lg:text-7xl tracking-tight text-foreground mb-6">
-            Scale to Any
+          <h2 className="font-display text-4xl lg:text-6xl tracking-tight text-foreground mb-6">
+            Built for every
             <br />
-            <span className="text-stroke">Building</span>
+            <span className="text-muted-foreground">Scale.</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-xl">
-            From single buildings to entire cities. Flexible deployment for any scale.
+            From a single apartment block to a city-wide rollout.
+            WATER-IQ deploys in under a day and operates with zero ongoing manual input.
           </p>
         </div>
-
-        
 
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-3 gap-px bg-foreground/10">
@@ -88,7 +85,6 @@ export function PricingSection() {
                 </span>
               )}
 
-              {/* Plan Header */}
               <div className="mb-8">
                 <span className="font-mono text-xs text-muted-foreground">
                   {String(idx + 1).padStart(2, "0")}
@@ -97,12 +93,10 @@ export function PricingSection() {
                 <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
               </div>
 
-              {/* Price */}
               <div className="mb-8 pb-8 border-b border-foreground/10">
                 <span className="font-display text-4xl text-foreground">Custom Quote</span>
               </div>
 
-              {/* Features */}
               <ul className="space-y-4 mb-10">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-3">
@@ -112,7 +106,6 @@ export function PricingSection() {
                 ))}
               </ul>
 
-              {/* CTA */}
               <button
                 className={`w-full py-4 flex items-center justify-center gap-2 text-sm font-medium transition-all group ${
                   plan.popular
@@ -127,7 +120,6 @@ export function PricingSection() {
           ))}
         </div>
 
-        {/* Bottom Note */}
         <p className="mt-12 text-center text-sm text-muted-foreground">
           All deployments include installation, training, and ongoing maintenance.{" "}
           <a href="/not-found-page" className="underline underline-offset-4 hover:text-foreground transition-colors">

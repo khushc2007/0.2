@@ -12,12 +12,9 @@ export function CtaSection() {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setIsVisible(true);
-      },
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
       { threshold: 0.2 }
     );
-
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, []);
@@ -58,8 +55,8 @@ export function CtaSection() {
                 </h2>
 
                 <p className="text-xl text-muted-foreground mb-12 leading-relaxed max-w-xl">
-                  Join the buildings already saving thousands of liters every month. 
-                  Installation takes less than a day.
+                  WATER-IQ is actively deployed and accepting pilot partners.
+                  Installation takes less than a day. Zero ongoing manual input required.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-start gap-4">
@@ -68,8 +65,8 @@ export function CtaSection() {
                     className="bg-foreground hover:bg-foreground/90 text-background px-8 h-14 text-base rounded-full group"
                     asChild
                   >
-                    <a href="/not-found-page">
-                      Request Installation
+                    <a href="https://login-jdj8.vercel.app">
+                      Get Access
                       <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
                     </a>
                   </Button>
@@ -86,7 +83,7 @@ export function CtaSection() {
                 </div>
 
                 <p className="text-sm text-muted-foreground mt-8 font-mono">
-                  Free consultation included
+                  Free consultation for pilot buildings. Bengaluru-based installations prioritized.
                 </p>
               </div>
 
@@ -97,7 +94,7 @@ export function CtaSection() {
             </div>
           </div>
 
-          {/* Decorative corner */}
+          {/* Decorative corners */}
           <div className="absolute top-0 right-0 w-32 h-32 border-b border-l border-foreground/10" />
           <div className="absolute bottom-0 left-0 w-32 h-32 border-t border-r border-foreground/10" />
         </div>

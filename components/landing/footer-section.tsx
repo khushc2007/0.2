@@ -5,33 +5,30 @@ import { AnimatedWave } from "./animated-wave";
 
 const footerLinks = {
   Product: [
-    { name: "Features", href: "#solution" },
-    { name: "How it Works", href: "#system" },
-    { name: "Applications", href: "#applications" },
-    { name: "Dashboard", href: "#dashboard" },
+    { name: "How It Works", href: "#solution" },
+    { name: "Technology",   href: "#technology" },
+    { name: "Impact",       href: "#impact" },
+    { name: "Deploy",       href: "#deploy" },
   ],
-  Technology: [
-    { name: "System Breakdown", href: "#system" },
-    { name: "Sensor Array", href: "#dashboard" },
-    { name: "AI Engine", href: "#solution" },
-    { name: "3D Model", href: "#tank" },
+  System: [
+    { name: "AI Stack",         href: "#technology" },
+    { name: "Filtration",       href: "#brackets" },
+    { name: "Process",          href: "#system" },
+    { name: "View 3D Model",    href: "https://chamber3d-e6hod2yda-ddeh5x.vercel.app" },
   ],
   Company: [
-    { name: "About", href: "/not-found-page" },
-    { name: "Blog", href: "/not-found-page" },
-    { name: "Careers", href: "/not-found-page", badge: "Hiring" },
+    { name: "Team",    href: "#team" },
+    { name: "About",   href: "/not-found-page" },
     { name: "Contact", href: "/not-found-page" },
   ],
   Legal: [
     { name: "Privacy", href: "/not-found-page" },
-    { name: "Terms", href: "/not-found-page" },
-    { name: "Security", href: "/not-found-page" },
+    { name: "Terms",   href: "/not-found-page" },
   ],
 };
 
 const socialLinks = [
-  { name: "Twitter", href: "/not-found-page" },
-  { name: "GitHub", href: "/not-found-page" },
+  { name: "GitHub",   href: "/not-found-page" },
   { name: "LinkedIn", href: "/not-found-page" },
 ];
 
@@ -54,7 +51,7 @@ export function FooterSection() {
               </a>
 
               <p className="text-muted-foreground leading-relaxed mb-8 max-w-xs">
-                Smart greywater intelligence for modern buildings. Reclaim. Recycle. Reimagine.
+                AI-driven greywater intelligence for modern buildings.
               </p>
 
               {/* Social Links */}
@@ -84,11 +81,6 @@ export function FooterSection() {
                         className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-2"
                       >
                         {link.name}
-                        {"badge" in link && link.badge && (
-                          <span className="text-xs px-2 py-0.5 bg-foreground text-background rounded-full">
-                            {link.badge}
-                          </span>
-                        )}
                       </a>
                     </li>
                   ))}
@@ -101,7 +93,7 @@ export function FooterSection() {
         {/* Bottom Bar */}
         <div className="py-8 border-t border-foreground/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            2025 WATER·IQ. All rights reserved.
+            © 2025 WATER-IQ. Built in Bengaluru.
           </p>
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
